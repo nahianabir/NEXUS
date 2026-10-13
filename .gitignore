@@ -1,0 +1,13 @@
+# Rust
+app/src-tauri/target/
+app/src-tauri/Cargo.lock
+
+# Web
+app/web/node_modules/
+app/web/dist/
+app/web/.vite/
+
+# Local
+.scratch/
+.DS_Store
+Thumbs.db

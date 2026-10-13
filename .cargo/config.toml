@@ -1,0 +1,18 @@
+# .cargo/config.toml
+#
+# Workaround: the Rust GNU toolchain (rustup default on this
+# machine) does not ship `libktmw32.a`. Some Tauri plugins
+# transitively link against it even though none of the symbols
+# are actually used in the test binary. A zero-symbol stub
+# at C:\Users\Nahian Abir\.cargo\lib-stubs satisfies the
+# linker; if the symbol is ever called at runtime the OS
+# resolves it via C:\Windows\System32\ktmw32.dll.
+#
+# This is a developer-machine workaround. The CI workflow
+# uses the x86_64-pc-windows-msvc toolchain on windows-2022
+# (which has the full Windows SDK) and does not need this
+# stub. Repo maintainers on a similar GNU toolchain should
+# regenerate the stub with `scripts/make_lib_stub.ps1`.
+
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-L", "C:/Users/Nahian Abir/.cargo/lib-stubs"]

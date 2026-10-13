@@ -1,0 +1,59 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NEXUS",
+  "version": "1.0.0",
+  "identifier": "ai.nexus.workbench",
+  "build": {
+    "frontendDist": "../web/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm --prefix ../app/web run dev",
+    "beforeBuildCommand": "npm --prefix ../app/web run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "NEXUS",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 720,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "fullscreen": false,
+        "center": true,
+        "visible": false,
+        "shadow": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:1234 http://127.0.0.1:11434 http://127.0.0.1:8081; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "icon": [
+      "icons/icon.ico"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Local-first AI workbench",
+    "longDescription": "NEXUS combines a personal AI second brain, a research copilot, document intelligence, and a controlled local agent into one local-first desktop application.",
+    "publisher": "NEXUS Project",
+    "copyright": "Copyright (c) 2026 NEXUS",
+    "windows": {
+      "wix": {
+        "language": ["en-US"]
+      },
+      "nsis": {
+        "installMode": "perMachine",
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
+  },
+  "plugins": {}
+}

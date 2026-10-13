@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html, body, #root { height: 100%; }
+  body {
+    background:
+      radial-gradient(1200px 800px at 10% -10%, rgba(63,196,238,0.06), transparent 60%),
+      radial-gradient(800px 600px at 110% 10%, rgba(154,120,240,0.05), transparent 60%),
+      linear-gradient(180deg, #06090d 0%, #0a0f17 100%);
+  }
+  ::selection { background: rgba(63,196,238,0.35); color: #e2f6ff; }
+  /* Custom thin scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 6px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-white/5 bg-ink-900/70 shadow-panel backdrop-blur-xs;
+  }
+  .panel-soft {
+    @apply rounded-2xl border border-white/5 bg-ink-900/40;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-ink-800/60 px-2.5 py-1 text-xs text-slate-300;
+  }
+  .h-title { @apply text-[15px] font-semibold tracking-wide text-slate-100; }
+  .h-sub { @apply text-[12px] uppercase tracking-[0.18em] text-slate-500; }
+  .kbd {
+    @apply rounded-md border border-white/10 bg-ink-850/80 px-1.5 py-0.5 font-mono text-[11px] text-slate-300;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-ink-800/70 px-3 py-1.5 text-sm text-slate-100 transition hover:border-cyan2-500/60 hover:bg-ink-700/60 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply border-cyan2-500/60 bg-cyan2-500/10 text-cyan2-400 hover:bg-cyan2-500/20;
+  }
+  .input {
+    @apply w-full rounded-lg border border-white/10 bg-ink-900/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan2-500/60 focus:outline-none focus:ring-1 focus:ring-cyan2-500/40;
+  }
+  .sidebar-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5;
+  }
+  .sidebar-item.active {
+    @apply bg-cyan2-500/10 text-cyan2-400 ring-1 ring-cyan2-500/30;
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-breathe, .animate-spin12, .animate-spin24, .animate-pulse2 { animation: none !important; }
+}
