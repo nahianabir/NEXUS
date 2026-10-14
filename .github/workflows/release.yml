@@ -1,0 +1,222 @@
+
+name: NEXUS Windows Build and Release
+
+on:
+  # Build and validate changes pushed to main.
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+  # Validate pull requests without publishing releases.
+  pull_request:
+    branches:
+      - main
+
+  # Allows you to start a build manually from GitHub Actions.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexus-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    name: Build Windows Installers
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/web/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-msvc
+
+      - name: Cache Rust dependencies and build output
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri -> target
+
+      - name: Verify required source and lockfiles
+        shell: pwsh
+        run: |
+          $required = @(
+            "scripts/release.ps1",
+            "app/web/package.json",
+            "app/web/package-lock.json",
+            "app/src-tauri/Cargo.toml"
+          )
+
+          foreach ($path in $required) {
+            if (-not (Test-Path $path -PathType Leaf)) {
+              throw "Required file is missing: $path"
+            }
+          }
+
+      - name: Install frontend dependencies
+        working-directory: app/web
+        run: npm ci
+
+      - name: Install Tauri CLI
+        shell: pwsh
+        run: |
+          cargo install tauri-cli --locked
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to install the Tauri CLI."
+          }
+
+      - name: Build NEXUS
+        shell: pwsh
+        run: |
+          $env:NEXUS_SKIP_WEB = "0"
+          $env:NEXUS_NO_BUNDLE = "0"
+
+          & "$env:GITHUB_WORKSPACE/scripts/release.ps1"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "NEXUS release build failed."
+          }
+
+      - name: Collect and verify installers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $bundleRoot = Join-Path $env:GITHUB_WORKSPACE `
+            "app/src-tauri/target/release/bundle"
+
+          $nsisDir = Join-Path $bundleRoot "nsis"
+          $msiDir  = Join-Path $bundleRoot "msi"
+          $outDir  = Join-Path $env:GITHUB_WORKSPACE "release-assets"
+
+          if (Test-Path $outDir) {
+            Remove-Item $outDir -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $outDir -Force |
+            Out-Null
+
+          $installers = @()
+
+          if (Test-Path $nsisDir) {
+            $installers += Get-ChildItem $nsisDir -File -Recurse |
+              Where-Object { $_.Extension -eq ".exe" }
+          }
+
+          if (Test-Path $msiDir) {
+            $installers += Get-ChildItem $msiDir -File -Recurse |
+              Where-Object { $_.Extension -eq ".msi" }
+          }
+
+          if ($installers.Count -eq 0) {
+            throw "No NSIS or MSI installers were produced."
+          }
+
+          foreach ($installer in $installers) {
+            Write-Host "Found installer: $($installer.FullName)"
+
+            Copy-Item $installer.FullName `
+              (Join-Path $outDir $installer.Name)
+          }
+
+          $copiedInstallers = @(
+            Get-ChildItem $outDir -File |
+              Where-Object {
+                $_.Extension -eq ".exe" -or
+                $_.Extension -eq ".msi"
+              }
+          )
+
+          if ($copiedInstallers.Count -eq 0) {
+            throw "No installer files were copied."
+          }
+
+          $checksumLines = foreach ($file in $copiedInstallers) {
+            $hash = Get-FileHash $file.FullName -Algorithm SHA256
+            "$($hash.Hash)  $($file.Name)"
+          }
+
+          $checksumLines |
+            Set-Content (Join-Path $outDir "SHA256SUMS.txt")
+
+          Write-Host "`nRelease files:"
+          Get-ChildItem $outDir -File |
+            Select-Object Name, Length
+
+      - name: Upload Windows installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-windows-installers
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-windows
+
+    # Publish only for version tags, never for pull requests or normal pushes.
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows installers
+        uses: actions/download-artifact@v4
+        with:
+          name: nexus-windows-installers
+          path: release-assets
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Release tag: ${GITHUB_REF_NAME}"
+          ls -lah release-assets
+
+          if ! find release-assets -maxdepth 1 -type f \
+            \( -name '*.exe' -o -name '*.msi' \) \
+            | grep -q .; then
+            echo "No Windows installers found."
+            exit 1
+          fi
+
+          if [ ! -s release-assets/SHA256SUMS.txt ]; then
+            echo "Missing or empty SHA256SUMS.txt."
+            exit 1
+          fi
+
+      - name: Publish release and upload installers
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: NEXUS ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            release-assets/*.exe
+            release-assets/*.msi
+            release-assets/SHA256SUMS.txt
